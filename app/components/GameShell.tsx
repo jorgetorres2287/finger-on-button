@@ -24,6 +24,7 @@ export default function GameShell({ game }: GameShellProps) {
   );
   const [playerCount, setPlayerCount] = useState(0);
   const [userId, setUserId] = useState<string | null>(null);
+  const [winnerId, setWinnerId] = useState<string | null>(game.winnerId || null);
   
   // Initialize user authentication
   useEffect(() => {
@@ -55,12 +56,46 @@ export default function GameShell({ game }: GameShellProps) {
     initAuth();
   }, []);
   
+  // Subscribe to game changes
+  useEffect(() => {
+    if (!userId) return;
+    
+    const gameChannel = supabase
+      .channel(`game-state-${game.id}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'Game',
+        filter: `id=eq.${game.id}`,
+      }, (payload) => {
+        console.log('Game updated:', payload.new);
+        
+        // Update game state
+        setGameState(payload.new.state as 'WAITING' | 'RUNNING' | 'FINISHED');
+        
+        // Update winner ID if available
+        if (payload.new.winnerId) {
+          setWinnerId(payload.new.winnerId);
+        }
+      })
+      .subscribe();
+      
+    return () => {
+      gameChannel.unsubscribe();
+    };
+  }, [game.id, userId]);
+  
   // Initialize realtime connection once we have a userId
   useEffect(() => {
     if (!userId) return;
     
     // Join or create player in the game
     const joinGame = async () => {
+      // Don't join if the game is already finished
+      if (gameState === 'FINISHED') {
+        return;
+      }
+      
       await supabase
         .from('Player')
         .upsert({
@@ -137,13 +172,16 @@ export default function GameShell({ game }: GameShellProps) {
             gameId={game.id}
             userId={userId}
             gameState={gameState}
+            winnerId={winnerId}
           />
         )}
         
         <div className="mt-8 text-center">
-          <p className="text-lg">
-            {playerCount > 0 && `${playerCount} player${playerCount !== 1 ? 's' : ''} in the game`}
-          </p>
+          {gameState !== 'FINISHED' && (
+            <p className="text-lg">
+              {playerCount > 0 && `${playerCount} player${playerCount !== 1 ? 's' : ''} in the game`}
+            </p>
+          )}
         </div>
       </main>
       

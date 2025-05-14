@@ -7,34 +7,27 @@ interface ButtonProps {
   gameId: string;
   userId: string;
   gameState: 'WAITING' | 'RUNNING' | 'FINISHED';
+  winnerId: string | null;
 }
 
-export default function Button({ gameId, userId, gameState }: ButtonProps) {
+export default function Button({ gameId, userId, gameState, winnerId }: ButtonProps) {
   const [isPressed, setIsPressed] = useState(false);
   const [isEliminated, setIsEliminated] = useState(false);
   const [isWinner, setIsWinner] = useState(false);
   const buttonRef = useRef<HTMLDivElement>(null);
+  
+  // Check if this player is the winner when winnerId changes
+  useEffect(() => {
+    if (winnerId && winnerId === `${gameId}-${userId}`) {
+      setIsWinner(true);
+    }
+  }, [winnerId, gameId, userId]);
   
   // Initialize Supabase Realtime channel
   useEffect(() => {
     // Setup channel for game updates
     const gameChannel = supabase
       .channel(`game-${gameId}`)
-      // Listen for game state changes
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'Game',
-        filter: `id=eq.${gameId}`,
-      }, (payload) => {
-        // Check if game is finished
-        if (payload.new.state === 'FINISHED') {
-          // Check if this player is the winner
-          if (payload.new.winnerId === `${gameId}-${userId}`) {
-            setIsWinner(true);
-          }
-        }
-      })
       // Listen for player status changes
       .on('postgres_changes', {
         event: 'UPDATE',
@@ -45,6 +38,9 @@ export default function Button({ gameId, userId, gameState }: ButtonProps) {
         // Check if player status was updated to WINNER
         if (payload.new.status === 'WINNER') {
           setIsWinner(true);
+        } else if (payload.new.status === 'ELIMINATED') {
+          setIsEliminated(true);
+          setIsPressed(false);
         }
       })
       .subscribe();
@@ -61,15 +57,33 @@ export default function Button({ gameId, userId, gameState }: ButtonProps) {
     setIsPressed(false);
     setIsEliminated(true);
     
-    // Update player status through Supabase API
-    await supabase
-      .from('Player')
-      .update({ 
-        status: 'ELIMINATED',
-        eliminatedAt: new Date().toISOString()
-      })
-      .eq('id', `${gameId}-${userId}`);
+    try {
+      // Update player status through Supabase API
+      await supabase
+        .from('Player')
+        .update({ 
+          status: 'ELIMINATED',
+          eliminatedAt: new Date().toISOString()
+        })
+        .eq('id', `${gameId}-${userId}`);
       
+      // Call the check-winner API to determine if a winner should be declared
+      const response = await fetch('/api/game/check-winner', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ gameId }),
+      });
+      
+      const result = await response.json();
+      
+      console.log('Check winner result:', result);
+      
+      // No need to handle the result here as the Game update will trigger the realtime subscription
+    } catch (error) {
+      console.error('Error during player elimination:', error);
+    }
   }, [gameState, isPressed, isEliminated, gameId, userId]);
   
   // Handle visibility change (tab switching/minimizing)
