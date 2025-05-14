@@ -12,6 +12,13 @@ interface GameShellProps {
 }
 
 export default function GameShell({ game }: GameShellProps) {
+  // Debug: Log game details
+  console.log('GameShell received game:', {
+    id: game.id,
+    scheduledAt: game.scheduledAt,
+    state: game.state
+  });
+
   const [gameState, setGameState] = useState<'WAITING' | 'RUNNING' | 'FINISHED'>(
     game.state as 'WAITING' | 'RUNNING' | 'FINISHED'
   );

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import GameShell from './components/GameShell';
 import { supabase } from './lib/supabase';
 import type { Game } from '@prisma/client';
+import { v4 as uuidv4 } from 'uuid';
 
 export default function Home() {
   const [game, setGame] = useState<Game | null>(null);
@@ -21,12 +22,14 @@ export default function Home() {
 
         // First try to fetch today's game
         const { data: games, error } = await supabase
-          .from('games')
+          .from('Game')
           .select('*')
           .gte('scheduledAt', today.toISOString())
           .lt('scheduledAt', tomorrow.toISOString())
           .order('scheduledAt', { ascending: true })
           .limit(1);
+
+        console.log('games', games);
 
         if (error) {
           console.error('Error fetching game:', error);
@@ -41,9 +44,10 @@ export default function Home() {
           noon.setHours(12, 0, 0, 0);
 
           const { data: newGame, error: createError } = await supabase
-            .from('games')
+            .from('Game')
             .insert([
               { 
+                id: uuidv4(),
                 scheduledAt: noon.toISOString(),
                 state: 'WAITING' 
               }
