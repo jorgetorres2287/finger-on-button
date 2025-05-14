@@ -1,112 +1,69 @@
-# MiniKit Template
+# Finger on the Button Game
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-onchain --mini`](), configured with:
+A multiplayer web game where the last player to keep their finger on a button wins.
 
-- [MiniKit](https://docs.base.org/builderkits/minikit/overview)
-- [OnchainKit](https://www.base.org/builders/onchainkit)
-- [Tailwind CSS](https://tailwindcss.com)
-- [Next.js](https://nextjs.org/docs)
+## Game Rules
 
-## Getting Started
+1. A countdown timer shows time until 12pm ET when the game starts
+2. When the game starts, all players must keep their finger on the button
+3. The last player to release their finger wins!
 
-1. Install dependencies:
+## Tech Stack
+
+- Next.js 14 (App Router)
+- TypeScript
+- Socket.io for real-time communication
+- Prisma with PostgreSQL for data persistence
+- TailwindCSS for styling
+
+## Setup Instructions
+
+### Prerequisites
+
+- Node.js 18+ and npm
+- PostgreSQL database
+
+### Environment Setup
+
+Create a `.env` file in the root directory with the following:
+
+```
+# Database connection string
+DATABASE_URL="postgresql://username:password@localhost:5432/finger_on_button"
+```
+
+### Installation
+
 ```bash
+# Install dependencies
 npm install
-# or
-yarn install
-# or
-pnpm install
-# or
-bun install
+
+# Set up the database
+npx prisma migrate dev --name init
 ```
 
-2. Verify environment variables, these will be set up by the `npx create-onchain --mini` command:
+### Development
 
-You can regenerate the FARCASTER Account Association environment variables by running `npx create-onchain --manifest` in your project directory.
-
-The environment variables enable the following features:
-
-- Frame metadata - Sets up the Frame Embed that will be shown when you cast your frame
-- Account association - Allows users to add your frame to their account, enables notifications
-- Redis API keys - Enable Webhooks and background notifications for your application by storing users notification details
-
-```bash
-# Shared/OnchainKit variables
-NEXT_PUBLIC_ONCHAINKIT_PROJECT_NAME=
-NEXT_PUBLIC_URL=
-NEXT_PUBLIC_ICON_URL=
-NEXT_PUBLIC_ONCHAINKIT_API_KEY=
-
-# Frame metadata
-FARCASTER_HEADER=
-FARCASTER_PAYLOAD=
-FARCASTER_SIGNATURE=
-NEXT_PUBLIC_APP_ICON=
-NEXT_PUBLIC_APP_SUBTITLE=
-NEXT_PUBLIC_APP_DESCRIPTION=
-NEXT_PUBLIC_APP_SPLASH_IMAGE=
-NEXT_PUBLIC_SPLASH_BACKGROUND_COLOR=
-NEXT_PUBLIC_APP_PRIMARY_CATEGORY=
-NEXT_PUBLIC_APP_HERO_IMAGE=
-NEXT_PUBLIC_APP_TAGLINE=
-NEXT_PUBLIC_APP_OG_TITLE=
-NEXT_PUBLIC_APP_OG_DESCRIPTION=
-NEXT_PUBLIC_APP_OG_IMAGE=
-
-# Redis config
-REDIS_URL=
-REDIS_TOKEN=
-```
-
-3. Start the development server:
 ```bash
 npm run dev
 ```
 
-## Template Features
+The application will be available at http://localhost:3000
 
-### Frame Configuration
-- `.well-known/farcaster.json` endpoint configured for Frame metadata and account association
-- Frame metadata automatically added to page headers in `layout.tsx`
+### Production Build
 
-### Background Notifications
-- Redis-backed notification system using Upstash
-- Ready-to-use notification endpoints in `api/notify` and `api/webhook`
-- Notification client utilities in `lib/notification-client.ts`
+```bash
+npm run build
+npm start
+```
 
-### Theming
-- Custom theme defined in `theme.css` with OnchainKit variables
-- Pixel font integration with Pixelify Sans
-- Dark/light mode support through OnchainKit
+## Deployment
 
-### MiniKit Provider
-The app is wrapped with `MiniKitProvider` in `providers.tsx`, configured with:
-- OnchainKit integration
-- Access to Frames context
-- Sets up Wagmi Connectors
-- Sets up Frame SDK listeners
-- Applies Safe Area Insets
+This application is designed to be deployed on Vercel. Make sure to set up the PostgreSQL database and add the `DATABASE_URL` environment variable in your Vercel project settings.
 
-## Customization
+## Game Architecture
 
-To get started building your own frame, follow these steps:
-
-1. Remove the DemoComponents:
-   - Delete `components/DemoComponents.tsx`
-   - Remove demo-related imports from `page.tsx`
-
-2. Start building your Frame:
-   - Modify `page.tsx` to create your Frame UI
-   - Update theme variables in `theme.css`
-   - Adjust MiniKit configuration in `providers.tsx`
-
-3. Add your frame to your account:
-   - Cast your frame to see it in action
-   - Share your frame with others to start building your community
-
-## Learn More
-
-- [MiniKit Documentation](https://docs.base.org/builderkits/minikit/overview)
-- [OnchainKit Documentation](https://docs.base.org/builderkits/onchainkit/getting-started)
-- [Next.js Documentation](https://nextjs.org/docs)
-- [Tailwind CSS Documentation](https://tailwindcss.com/docs)
+1. **Database Schema**: Games and Players are stored in PostgreSQL using Prisma ORM
+2. **Real-time Communication**: Socket.io handles player interactions and game state changes
+3. **Game Scheduling**: Games start automatically at 12pm ET each day
+4. **Anti-Cheating**: Measures prevent players from switching tabs or leaving the window
