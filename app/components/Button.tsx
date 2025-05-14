@@ -14,33 +14,40 @@ export default function Button({ gameId, userId, gameState }: ButtonProps) {
   const [isEliminated, setIsEliminated] = useState(false);
   const [isWinner, setIsWinner] = useState(false);
   const buttonRef = useRef<HTMLDivElement>(null);
-  const [channel, setChannel] = useState(null);
   
   // Initialize Supabase Realtime channel
   useEffect(() => {
-    // Setup channel for this specific game
+    // Setup channel for game updates
     const gameChannel = supabase
-      .channel(`game:${gameId}`, {
-        config: { private: true },
-      })
-      // Listen for player status changes
-      .on('broadcast', { event: 'UPDATE', table: 'Player' }, (payload) => {
-        if (payload.new.status === 'WINNER' && payload.new.userId === userId) {
-          setIsWinner(true);
-        }
-      })
+      .channel(`game-${gameId}`)
       // Listen for game state changes
-      .on('broadcast', { event: 'UPDATE', table: 'Game' }, (payload) => {
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'Game',
+        filter: `id=eq.${gameId}`,
+      }, (payload) => {
+        // Check if game is finished
         if (payload.new.state === 'FINISHED') {
-          // Game is over - check if you're the winner
+          // Check if this player is the winner
           if (payload.new.winnerId === `${gameId}-${userId}`) {
             setIsWinner(true);
           }
         }
       })
+      // Listen for player status changes
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'Player',
+        filter: `id=eq.${gameId}-${userId}`,
+      }, (payload) => {
+        // Check if player status was updated to WINNER
+        if (payload.new.status === 'WINNER') {
+          setIsWinner(true);
+        }
+      })
       .subscribe();
-      
-    setChannel(gameChannel);
     
     return () => {
       gameChannel.unsubscribe();
@@ -54,7 +61,7 @@ export default function Button({ gameId, userId, gameState }: ButtonProps) {
     setIsPressed(false);
     setIsEliminated(true);
     
-    // Update player status through Supabase API instead of socket
+    // Update player status through Supabase API
     await supabase
       .from('Player')
       .update({ 

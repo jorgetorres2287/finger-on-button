@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
-import { io, Socket } from 'socket.io-client';
+import { useEffect, useState } from 'react';
 import Countdown from './Countdown';
 import Button from './Button';
 import { getOrCreateUserIdClient, signInAnonymously } from '../lib/auth';
@@ -25,7 +24,6 @@ export default function GameShell({ game }: GameShellProps) {
   );
   const [playerCount, setPlayerCount] = useState(0);
   const [userId, setUserId] = useState<string | null>(null);
-  const socketRef = useRef<Socket>();
   
   // Initialize user authentication
   useEffect(() => {
@@ -38,8 +36,8 @@ export default function GameShell({ game }: GameShellProps) {
             setUserId(id);
             return;
           }
-        } catch (_) {
-          console.warn('Anonymous auth disabled or failed, using local ID instead');
+        } catch (err) {
+          console.warn('Anonymous auth disabled or failed, using local ID instead', err);
           // Continue to fallback
         }
         
@@ -57,7 +55,7 @@ export default function GameShell({ game }: GameShellProps) {
     initAuth();
   }, []);
   
-  // Initialize socket connection once we have a userId
+  // Initialize realtime connection once we have a userId
   useEffect(() => {
     if (!userId) return;
     
@@ -79,7 +77,12 @@ export default function GameShell({ game }: GameShellProps) {
     // Listen for player count changes
     const channel = supabase
       .channel(`game:${game.id}`)
-      .on('broadcast', { table: 'Player' }, async () => {
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'Player',
+        filter: `gameId=eq.${game.id}`
+      }, async () => {
         // Get updated player count
         const { count } = await supabase
           .from('Player')
@@ -97,13 +100,19 @@ export default function GameShell({ game }: GameShellProps) {
   }, [game.id, userId]);
   
   // Handle game start
-  const handleGameStart = () => {
-    if (!socketRef.current || !userId) return;
+  const handleGameStart = async () => {
+    if (!userId) return;
     
     setGameState('RUNNING');
-    socketRef.current.emit('startGame', {
-      gameId: game.id,
-    });
+    
+    // Update game state in database
+    await supabase
+      .from('Game')
+      .update({ 
+        state: 'RUNNING',
+        updatedAt: new Date().toISOString()
+      })
+      .eq('id', game.id);
   };
   
   if (!userId) {
@@ -127,7 +136,6 @@ export default function GameShell({ game }: GameShellProps) {
           <Button
             gameId={game.id}
             userId={userId}
-            socket={socketRef.current!}
             gameState={gameState}
           />
         )}
