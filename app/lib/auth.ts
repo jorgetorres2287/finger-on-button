@@ -1,5 +1,7 @@
-import { cookies } from 'next/headers';
+'use client';
+
 import { v4 as uuidv4 } from 'uuid';
+import { supabase } from './supabase';
 
 const USER_ID_COOKIE = 'finger-on-button-user-id';
 
@@ -7,7 +9,15 @@ const USER_ID_COOKIE = 'finger-on-button-user-id';
  * Get the current user ID from cookies or create a new one
  * Client-side version
  */
-export function getOrCreateUserIdClient(): string {
+export async function getOrCreateUserIdClient(): Promise<string> {
+  // Check if user is already authenticated with Supabase
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (user) {
+    return user.id;
+  }
+  
+  // If not authenticated, check localStorage for anonymous ID
   let userId = localStorage.getItem(USER_ID_COOKIE);
   
   if (!userId) {
@@ -19,24 +29,23 @@ export function getOrCreateUserIdClient(): string {
 }
 
 /**
- * Get user ID from cookies
- * Server-side version
+ * Sign in anonymously with Supabase
  */
-export function getUserId(): string | undefined {
-  const cookieStore = cookies();
-  return cookieStore.get(USER_ID_COOKIE)?.value;
+export async function signInAnonymously(): Promise<string | null> {
+  const { data, error } = await supabase.auth.signInAnonymously();
+  
+  if (error) {
+    console.error('Error signing in anonymously:', error);
+    return null;
+  }
+  
+  return data.user?.id || null;
 }
 
 /**
- * Set a user ID cookie
- * Server-side version
+ * Sign out from Supabase
  */
-export function setUserId(userId: string): void {
-  const cookieStore = cookies();
-  cookieStore.set(USER_ID_COOKIE, userId, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 60 * 60 * 24 * 365, // 1 year
-    path: '/',
-  });
+export async function signOut(): Promise<void> {
+  await supabase.auth.signOut();
+  localStorage.removeItem(USER_ID_COOKIE);
 } 

@@ -1,27 +1,23 @@
-import { Server } from 'socket.io';
-import type { Server as HTTPServer } from 'http';
-import type { Socket as NetSocket } from 'net';
-import type { NextApiRequest } from 'next';
-import { NextRequest } from 'next/server';
+import { Server as ServerIO } from 'socket.io';
+import { NextResponse } from 'next/server';
 import prisma from '@/app/lib/db';
 
-interface SocketServer extends HTTPServer {
-  io?: Server | undefined;
-}
+// Global instance of Socket.io server
+let io: ServerIO;
 
-interface SocketWithIO extends NetSocket {
-  server: SocketServer;
-}
-
-interface NextApiResponseWithSocket extends NextApiRequest {
-  socket: SocketWithIO;
-}
-
-export async function GET(req: NextRequest, res: NextApiResponseWithSocket) {
-  if (!res.socket.server.io) {
+export async function GET() {
+  if (!io) {
     console.log('Initializing Socket.io server...');
-    const io = new Server(res.socket.server);
-    res.socket.server.io = io;
+    
+    // Create a new Socket.io server
+    io = new ServerIO({
+      path: '/api/socket',
+      addTrailingSlash: false,
+      cors: {
+        origin: '*',
+        methods: ['GET', 'POST'],
+      },
+    });
 
     io.on('connection', (socket) => {
       console.log('Client connected:', socket.id);
@@ -135,7 +131,7 @@ export async function GET(req: NextRequest, res: NextApiResponseWithSocket) {
     });
   }
 
-  return new Response('Socket is running', {
+  return new NextResponse('Socket is running', {
     status: 200,
   });
 } 

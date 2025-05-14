@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import Countdown from './Countdown';
 import Button from './Button';
-import { getOrCreateUserIdClient } from '../lib/auth';
+import { getOrCreateUserIdClient, signInAnonymously } from '../lib/auth';
 import type { Game } from '@prisma/client';
 
 interface GameShellProps {
@@ -16,14 +16,46 @@ export default function GameShell({ game }: GameShellProps) {
     game.state as 'WAITING' | 'RUNNING' | 'FINISHED'
   );
   const [playerCount, setPlayerCount] = useState(0);
+  const [userId, setUserId] = useState<string | null>(null);
   const socketRef = useRef<Socket>();
-  const userId = useRef<string>(getOrCreateUserIdClient());
   
-  // Initialize socket connection
+  // Initialize user authentication
   useEffect(() => {
+    const initAuth = async () => {
+      try {
+        // Try to sign in anonymously with Supabase
+        let id = await signInAnonymously();
+        
+        // If Supabase anonymous auth fails, fall back to local ID
+        if (!id) {
+          id = await getOrCreateUserIdClient();
+        }
+        
+        setUserId(id);
+      } catch (error) {
+        console.error('Auth error:', error);
+        // Fallback to generated UUID if auth fails
+        const fallbackId = crypto.randomUUID();
+        setUserId(fallbackId);
+      }
+    };
+    
+    initAuth();
+  }, []);
+  
+  // Initialize socket connection once we have a userId
+  useEffect(() => {
+    if (!userId) return;
+    
+    // Create socket connection
     const socket = io({
       path: '/api/socket',
+      autoConnect: true,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
     });
+    
     socketRef.current = socket;
     
     // Connect to the game
@@ -31,8 +63,13 @@ export default function GameShell({ game }: GameShellProps) {
       console.log('Connected to socket server');
       socket.emit('join', {
         gameId: game.id,
-        userId: userId.current,
+        userId,
       });
+    });
+    
+    // Handle connection errors
+    socket.on('connect_error', (error) => {
+      console.error('Socket connection error:', error);
     });
     
     // Listen for game events
@@ -51,17 +88,21 @@ export default function GameShell({ game }: GameShellProps) {
     return () => {
       socket.disconnect();
     };
-  }, [game.id]);
+  }, [game.id, userId]);
   
   // Handle game start
   const handleGameStart = () => {
-    if (!socketRef.current) return;
+    if (!socketRef.current || !userId) return;
     
     setGameState('RUNNING');
     socketRef.current.emit('startGame', {
       gameId: game.id,
     });
   };
+  
+  if (!userId) {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  }
   
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4">
@@ -79,7 +120,7 @@ export default function GameShell({ game }: GameShellProps) {
         ) : (
           <Button
             gameId={game.id}
-            userId={userId.current}
+            userId={userId}
             socket={socketRef.current!}
             gameState={gameState}
           />
