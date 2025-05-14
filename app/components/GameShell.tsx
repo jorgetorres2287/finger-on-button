@@ -132,6 +132,7 @@ export default function GameShell({ game }: GameShellProps) {
     return () => {
       channel.unsubscribe();
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.id, userId]);
   
   // Handle game start
