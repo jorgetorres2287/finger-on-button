@@ -5,10 +5,20 @@ import GameShell from './components/GameShell';
 import { supabase } from './lib/supabase';
 import type { Game } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
+import { useMiniKit } from '@coinbase/onchainkit/minikit';
 
 export default function Home() {
   const [game, setGame] = useState<Game | null>(null);
   const [loading, setLoading] = useState(true);
+  const { setFrameReady, isFrameReady, context } = useMiniKit();
+
+  console.log({ context });
+
+  useEffect(() => {
+    if (!isFrameReady) {
+      setFrameReady();
+    }
+  }, [setFrameReady, isFrameReady]);
 
   useEffect(() => {
     async function fetchOrCreateGame() {
@@ -114,5 +124,9 @@ export default function Home() {
     return <div className="min-h-screen flex items-center justify-center">Could not load the game. Please check console logs and try again.</div>;
   }
   
-  return <GameShell game={game} />;
+  return (
+    <div className="flex flex-col gap-2">
+      <GameShell game={game} />
+    </div>
+  );
 }
