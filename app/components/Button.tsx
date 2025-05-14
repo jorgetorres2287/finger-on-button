@@ -120,10 +120,22 @@ export default function Button({ gameId, userId, gameState, winnerId }: ButtonPr
     };
   }, []);
   
-  const handlePointerDown = () => {
+  const handlePointerDown = useCallback(async () => {
     if (gameState !== 'RUNNING' || isEliminated) return;
     setIsPressed(true);
-  };
+    
+    try {
+      // Update player status to HOLDING when button is pressed
+      await supabase
+        .from('Player')
+        .update({ 
+          status: 'HOLDING'
+        })
+        .eq('id', `${gameId}-${userId}`);
+    } catch (error) {
+      console.error('Error updating player status to HOLDING:', error);
+    }
+  }, [gameState, isEliminated, gameId, userId]);
   
   // Handle pointer leaving button area
   const handlePointerLeave = () => {

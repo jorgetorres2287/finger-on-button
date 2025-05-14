@@ -23,7 +23,7 @@ model Player {
   userId       String       // from cookie or IP-hash
   joinedAt     DateTime     @default(now())
   eliminatedAt DateTime?
-  status       PlayerStatus @default(HOLDING)
+  status       PlayerStatus @default(IDLE)
   game         Game         @relation(fields: [gameId], references: [id])
 }
 
@@ -34,6 +34,7 @@ enum GameState {
 }
 
 enum PlayerStatus {
+  IDLE
   HOLDING    // finger down
   ELIMINATED // lifted finger
   WINNER

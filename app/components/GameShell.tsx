@@ -102,7 +102,7 @@ export default function GameShell({ game }: GameShellProps) {
           id: `${game.id}-${userId}`,
           gameId: game.id,
           userId: userId,
-          status: 'HOLDING',
+          status: 'IDLE',
           joinedAt: new Date().toISOString()
         });
     };
