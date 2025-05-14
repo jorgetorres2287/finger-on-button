@@ -6,6 +6,7 @@ import Countdown from './Countdown';
 import Button from './Button';
 import { getOrCreateUserIdClient, signInAnonymously } from '../lib/auth';
 import type { Game } from '@prisma/client';
+import { supabase } from '../lib/supabase';
 
 interface GameShellProps {
   game: Game;
@@ -60,59 +61,38 @@ export default function GameShell({ game }: GameShellProps) {
   useEffect(() => {
     if (!userId) return;
     
-    // Create socket connection
-    const socket = io({
-      path: '/api/socket',
-      autoConnect: true,
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-    });
+    // Join or create player in the game
+    const joinGame = async () => {
+      await supabase
+        .from('Player')
+        .upsert({
+          id: `${game.id}-${userId}`,
+          gameId: game.id,
+          userId: userId,
+          status: 'HOLDING',
+          joinedAt: new Date().toISOString()
+        });
+    };
     
-    socketRef.current = socket;
+    joinGame();
     
-    // Connect to the game
-    socket.on('connect', () => {
-      console.log('Connected to socket server');
-      socket.emit('join', {
-        gameId: game.id,
-        userId,
-      });
-    });
-    
-    // Handle connection errors
-    socket.on('connect_error', (error) => {
-      console.error('Socket connection error:', error);
-    });
-    
-    // Listen for game events
-    socket.on('gameStart', () => {
-      setGameState('RUNNING');
-    });
-    
-    socket.on('playerUpdate', ({ count }) => {
-      setPlayerCount(count);
-      console.log(`Player count updated: ${count}`);
-    });
-    
-    socket.on('gameOver', ({ winnerUserId }) => {
-      console.log(`Game over event received. Winner: ${winnerUserId || 'None'}`);
-      setGameState('FINISHED');
+    // Listen for player count changes
+    const channel = supabase
+      .channel(`game:${game.id}`)
+      .on('broadcast', { table: 'Player' }, async () => {
+        // Get updated player count
+        const { count } = await supabase
+          .from('Player')
+          .select('*', { count: 'exact', head: true })
+          .eq('gameId', game.id)
+          .eq('status', 'HOLDING');
+          
+        setPlayerCount(count || 0);
+      })
+      .subscribe();
       
-      if (winnerUserId) {
-        console.log(`Game over! Winner: ${winnerUserId === userId ? 'You' : 'Another player'}`);
-      } else {
-        console.log('Game over! No winners, all players eliminated.');
-      }
-    });
-    
-    // Handle socket errors
-    socket.on('error', (error) => {
-      console.error('Socket event error:', error);
-    });
-    
     return () => {
-      socket.disconnect();
+      channel.unsubscribe();
     };
   }, [game.id, userId]);
   

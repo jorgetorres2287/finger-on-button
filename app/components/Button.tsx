@@ -1,52 +1,69 @@
 'use client';
 
 import { useRef, useState, useEffect, useCallback } from 'react';
-import { Socket } from 'socket.io-client';
+import { supabase } from '../lib/supabase';
 
 interface ButtonProps {
   gameId: string;
   userId: string;
-  socket: Socket;
   gameState: 'WAITING' | 'RUNNING' | 'FINISHED';
 }
 
-export default function Button({ gameId, userId, socket, gameState }: ButtonProps) {
+export default function Button({ gameId, userId, gameState }: ButtonProps) {
   const [isPressed, setIsPressed] = useState(false);
   const [isEliminated, setIsEliminated] = useState(false);
   const [isWinner, setIsWinner] = useState(false);
   const buttonRef = useRef<HTMLDivElement>(null);
+  const [channel, setChannel] = useState(null);
   
-  // Define handlePointerUp as a callback to avoid dependency issues
-  const handlePointerUp = useCallback(() => {
+  // Initialize Supabase Realtime channel
+  useEffect(() => {
+    // Setup channel for this specific game
+    const gameChannel = supabase
+      .channel(`game:${gameId}`, {
+        config: { private: true },
+      })
+      // Listen for player status changes
+      .on('broadcast', { event: 'UPDATE', table: 'Player' }, (payload) => {
+        if (payload.new.status === 'WINNER' && payload.new.userId === userId) {
+          setIsWinner(true);
+        }
+      })
+      // Listen for game state changes
+      .on('broadcast', { event: 'UPDATE', table: 'Game' }, (payload) => {
+        if (payload.new.state === 'FINISHED') {
+          // Game is over - check if you're the winner
+          if (payload.new.winnerId === `${gameId}-${userId}`) {
+            setIsWinner(true);
+          }
+        }
+      })
+      .subscribe();
+      
+    setChannel(gameChannel);
+    
+    return () => {
+      gameChannel.unsubscribe();
+    };
+  }, [gameId, userId]);
+  
+  // Handle button press logic
+  const handlePointerUp = useCallback(async () => {
     if (gameState !== 'RUNNING' || !isPressed || isEliminated) return;
     
     setIsPressed(false);
     setIsEliminated(true);
     
-    // Notify server
-    socket.emit('pointerUp', { gameId, userId });
-  }, [gameState, isPressed, isEliminated, socket, gameId, userId]);
-  
-  // Setup socket event listeners
-  useEffect(() => {
-    if (!socket || !socket.connected) {
-      console.log("Socket not connected, skipping event registration");
-      return;
-    }
-    
-    const handleGameOver = ({ winnerUserId }: { winnerUserId: string | null }) => {
-      console.log(`Game over received. Winner: ${winnerUserId || 'None'}`);
-      if (winnerUserId === userId) {
-        setIsWinner(true);
-      }
-    };
-    
-    socket.on('gameOver', handleGameOver);
-    
-    return () => {
-      socket.off('gameOver', handleGameOver);
-    };
-  }, [socket, userId]);
+    // Update player status through Supabase API instead of socket
+    await supabase
+      .from('Player')
+      .update({ 
+        status: 'ELIMINATED',
+        eliminatedAt: new Date().toISOString()
+      })
+      .eq('id', `${gameId}-${userId}`);
+      
+  }, [gameState, isPressed, isEliminated, gameId, userId]);
   
   // Handle visibility change (tab switching/minimizing)
   useEffect(() => {
