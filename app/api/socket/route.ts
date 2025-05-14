@@ -20,7 +20,7 @@ export async function GET() {
     });
 
     io.on('connection', (socket) => {
-      console.log('Client connected:', socket.id);
+      console.log('Client connected, yay!:', socket.id);
 
       socket.on('join', async ({ gameId, userId }) => {
         try {
