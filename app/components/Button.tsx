@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import { Socket } from 'socket.io-client';
 
 interface ButtonProps {
@@ -15,6 +15,17 @@ export default function Button({ gameId, userId, socket, gameState }: ButtonProp
   const [isEliminated, setIsEliminated] = useState(false);
   const [isWinner, setIsWinner] = useState(false);
   const buttonRef = useRef<HTMLDivElement>(null);
+  
+  // Define handlePointerUp as a callback to avoid dependency issues
+  const handlePointerUp = useCallback(() => {
+    if (gameState !== 'RUNNING' || !isPressed || isEliminated) return;
+    
+    setIsPressed(false);
+    setIsEliminated(true);
+    
+    // Notify server
+    socket.emit('pointerUp', { gameId, userId });
+  }, [gameState, isPressed, isEliminated, socket, gameId, userId]);
   
   // Setup socket event listeners
   useEffect(() => {
@@ -44,7 +55,7 @@ export default function Button({ gameId, userId, socket, gameState }: ButtonProp
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [gameState, isPressed, isEliminated]);
+  }, [gameState, isPressed, isEliminated, handlePointerUp]);
   
   // Prevent context menu on button
   useEffect(() => {
@@ -66,16 +77,6 @@ export default function Button({ gameId, userId, socket, gameState }: ButtonProp
   const handlePointerDown = () => {
     if (gameState !== 'RUNNING' || isEliminated) return;
     setIsPressed(true);
-  };
-  
-  const handlePointerUp = () => {
-    if (gameState !== 'RUNNING' || !isPressed || isEliminated) return;
-    
-    setIsPressed(false);
-    setIsEliminated(true);
-    
-    // Notify server
-    socket.emit('pointerUp', { gameId, userId });
   };
   
   // Handle pointer leaving button area
