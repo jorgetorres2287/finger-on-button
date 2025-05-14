@@ -31,17 +31,23 @@ export default function GameShell({ game }: GameShellProps) {
     const initAuth = async () => {
       try {
         // Try to sign in anonymously with Supabase
-        let id = await signInAnonymously();
-        
-        // If Supabase anonymous auth fails, fall back to local ID
-        if (!id) {
-          id = await getOrCreateUserIdClient();
+        try {
+          const id = await signInAnonymously();
+          if (id) {
+            setUserId(id);
+            return;
+          }
+        } catch (_) {
+          console.warn('Anonymous auth disabled or failed, using local ID instead');
+          // Continue to fallback
         }
         
-        setUserId(id);
+        // If Supabase anonymous auth fails, fall back to local ID
+        const localId = await getOrCreateUserIdClient();
+        setUserId(localId);
       } catch (error) {
         console.error('Auth error:', error);
-        // Fallback to generated UUID if auth fails
+        // Fallback to generated UUID if all auth methods fail
         const fallbackId = crypto.randomUUID();
         setUserId(fallbackId);
       }
@@ -86,10 +92,23 @@ export default function GameShell({ game }: GameShellProps) {
     
     socket.on('playerUpdate', ({ count }) => {
       setPlayerCount(count);
+      console.log(`Player count updated: ${count}`);
     });
     
-    socket.on('gameOver', () => {
+    socket.on('gameOver', ({ winnerUserId }) => {
+      console.log(`Game over event received. Winner: ${winnerUserId || 'None'}`);
       setGameState('FINISHED');
+      
+      if (winnerUserId) {
+        console.log(`Game over! Winner: ${winnerUserId === userId ? 'You' : 'Another player'}`);
+      } else {
+        console.log('Game over! No winners, all players eliminated.');
+      }
+    });
+    
+    // Handle socket errors
+    socket.on('error', (error) => {
+      console.error('Socket event error:', error);
     });
     
     return () => {

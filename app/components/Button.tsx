@@ -29,14 +29,22 @@ export default function Button({ gameId, userId, socket, gameState }: ButtonProp
   
   // Setup socket event listeners
   useEffect(() => {
-    socket.on('gameOver', ({ winnerUserId }) => {
+    if (!socket || !socket.connected) {
+      console.log("Socket not connected, skipping event registration");
+      return;
+    }
+    
+    const handleGameOver = ({ winnerUserId }: { winnerUserId: string | null }) => {
+      console.log(`Game over received. Winner: ${winnerUserId || 'None'}`);
       if (winnerUserId === userId) {
         setIsWinner(true);
       }
-    });
+    };
+    
+    socket.on('gameOver', handleGameOver);
     
     return () => {
-      socket.off('gameOver');
+      socket.off('gameOver', handleGameOver);
     };
   }, [socket, userId]);
   

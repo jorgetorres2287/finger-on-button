@@ -20,10 +20,12 @@ export async function GET() {
     });
 
     io.on('connection', (socket) => {
-      console.log('Client connected, yay!:', socket.id);
+      console.log('Client connected, socket ID:', socket.id);
 
       socket.on('join', async ({ gameId, userId }) => {
         try {
+          console.log(`Player ${userId} joining game ${gameId}`);
+          
           // Join the game room
           socket.join(gameId);
 
@@ -49,14 +51,17 @@ export async function GET() {
             where: { gameId, status: 'HOLDING' },
           });
           
+          console.log(`Game ${gameId} now has ${playerCount} active players`);
           io.to(gameId).emit('playerUpdate', { count: playerCount });
         } catch (error) {
           console.error('Error joining game:', error);
+          socket.emit('error', { message: 'Failed to join game' });
         }
       });
 
       socket.on('pointerUp', async ({ gameId, userId }) => {
         try {
+          console.log(`Player ${userId} lifted finger in game ${gameId}`);
           const playerId = `${gameId}-${userId}`;
           
           // Mark player as eliminated
@@ -68,6 +73,8 @@ export async function GET() {
             },
           });
 
+          console.log(`Player ${userId} is now eliminated`);
+
           // Check remaining players
           const remainingPlayers = await prisma.player.findMany({
             where: {
@@ -76,14 +83,24 @@ export async function GET() {
             },
           });
 
+          console.log(`Remaining players in game ${gameId}: ${remainingPlayers.length}`);
+
+          // Get total player count (including eliminated) to verify at least 2 players participated
+          const totalPlayers = await prisma.player.count({
+            where: { gameId },
+          });
+
+          console.log(`Total players in game ${gameId}: ${totalPlayers}`);
+
           // Emit player update
           io.to(gameId).emit('playerUpdate', {
             count: remainingPlayers.length,
           });
 
-          // If only one player left, we have a winner
-          if (remainingPlayers.length === 1) {
+          // If only one player left AND at least 2 total players in the game, we have a winner
+          if (remainingPlayers.length === 1 && totalPlayers >= 2) {
             const winner = remainingPlayers[0];
+            console.log(`We have a winner! Player ${winner.userId}`);
             
             // Update game and player status
             await prisma.$transaction([
@@ -105,28 +122,56 @@ export async function GET() {
               winnerId: winner.id,
               winnerUserId: winner.userId 
             });
+            
+            console.log(`Game over event sent for ${gameId}`);
+          } else if (remainingPlayers.length === 0) {
+            console.log(`All players eliminated in game ${gameId}`);
+            
+            // Everyone is eliminated, no winner
+            await prisma.game.update({
+              where: { id: gameId },
+              data: { 
+                state: 'FINISHED',
+                winnerId: null
+              },
+            });
+            
+            io.to(gameId).emit('gameOver', { 
+              winnerId: null,
+              winnerUserId: null
+            });
+            
+            console.log(`Game over event sent for ${gameId} (no winner)`);
           }
         } catch (error) {
           console.error('Error processing pointer up:', error);
+          socket.emit('error', { message: 'Failed to process move' });
         }
       });
 
       // Handle game start event
       socket.on('startGame', async ({ gameId }) => {
         try {
+          console.log(`Starting game ${gameId}`);
           await prisma.game.update({
             where: { id: gameId },
             data: { state: 'RUNNING' },
           });
           
           io.to(gameId).emit('gameStart');
+          console.log(`Game start event sent for ${gameId}`);
         } catch (error) {
           console.error('Error starting game:', error);
+          socket.emit('error', { message: 'Failed to start game' });
         }
       });
 
       socket.on('disconnect', () => {
         console.log('Client disconnected:', socket.id);
+      });
+      
+      socket.on('error', (error) => {
+        console.error('Socket error:', error);
       });
     });
   }
