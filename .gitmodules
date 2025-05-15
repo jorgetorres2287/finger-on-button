@@ -1,0 +1,3 @@
+[submodule "finger-on-button/lib/forge-std"]
+	path = finger-on-button/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std.git

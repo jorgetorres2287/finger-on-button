@@ -6,6 +6,7 @@ import { supabase } from './lib/supabase';
 import type { Game } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 import { useMiniKit } from '@coinbase/onchainkit/minikit';
+import { Wallet } from '@coinbase/onchainkit/wallet';
 
 export default function Home() {
   const [game, setGame] = useState<Game | null>(null);
@@ -126,6 +127,7 @@ export default function Home() {
   
   return (
     <div className="flex flex-col gap-2">
+      <Wallet />
       <GameShell game={game} />
     </div>
   );

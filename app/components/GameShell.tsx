@@ -6,6 +6,10 @@ import Button from './Button';
 import { getOrCreateUserIdClient, signInAnonymously } from '../lib/auth';
 import type { Game } from '@prisma/client';
 import { supabase } from '../lib/supabase';
+import { isPlayerInGame } from '@/thirdweb/84532/0xe94e6b6978298b7542d9e316772fb365a4bdb1cc';
+import { useAccount } from 'wagmi';
+import { defineChain, getContract } from 'thirdweb';
+import { CHAIN, client, FINGER_ON_BUTTON_CONTRACT_ADDRESS } from '../constants';
 
 interface GameShellProps {
   game: Game;

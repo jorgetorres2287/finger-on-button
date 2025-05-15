@@ -2,6 +2,11 @@
 
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { isPlayerInGame } from '@/thirdweb/84532/0xe94e6b6978298b7542d9e316772fb365a4bdb1cc';
+import { useAccount } from 'wagmi';
+import { defineChain, getContract } from 'thirdweb';
+import { CHAIN, client, FINGER_ON_BUTTON_CONTRACT_ADDRESS } from '../constants';
+import { PayToPlay } from './PayToPlay';
 
 interface ButtonProps {
   gameId: string;
@@ -15,6 +20,27 @@ export default function Button({ gameId, userId, gameState, winnerId }: ButtonPr
   const [isEliminated, setIsEliminated] = useState(false);
   const [isWinner, setIsWinner] = useState(false);
   const buttonRef = useRef<HTMLDivElement>(null);
+
+  const [didPlayerPayToEnterGame, setDidPlayerPayToEnterGame] = useState(false);
+  const { address } = useAccount();
+
+  useEffect(() => {
+    const checkIfPlayerPaidToEnterGame = async () => {
+      if (!address || didPlayerPayToEnterGame) return;
+      const didPlayerPay = await isPlayerInGame({
+        gameId,
+        user: address,
+        contract: getContract({
+          address: FINGER_ON_BUTTON_CONTRACT_ADDRESS,
+          chain: defineChain(CHAIN.id),
+          client,
+        })
+      });
+      console.log('didPlayerPay', didPlayerPay);
+      setDidPlayerPayToEnterGame(didPlayerPay);
+    }
+    checkIfPlayerPaidToEnterGame();
+  }, [address, gameId, didPlayerPayToEnterGame]);
   
   // Check if this player is the winner when winnerId changes
   useEffect(() => {
@@ -168,6 +194,15 @@ export default function Button({ gameId, userId, gameState, winnerId }: ButtonPr
   }
   
   const buttonColor = isPressed ? 'bg-red-800' : 'bg-red-600';
+
+  if (!didPlayerPayToEnterGame) {
+    return (
+      <div className="text-center">
+        <h2 className="text-2xl font-bold mb-4">Please pay to enter the game</h2>
+        <PayToPlay gameId={gameId} onSuccess={() => setDidPlayerPayToEnterGame(true)} />
+      </div>
+    );
+  }
   
   return (
     <div className="text-center">
