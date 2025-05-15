@@ -6,11 +6,7 @@ import Button from './Button';
 import { getOrCreateUserIdClient, signInAnonymously } from '../lib/auth';
 import type { Game } from '@prisma/client';
 import { supabase } from '../lib/supabase';
-import { isPlayerInGame } from '@/thirdweb/84532/0xe94e6b6978298b7542d9e316772fb365a4bdb1cc';
 import { useAccount } from 'wagmi';
-import { defineChain, getContract } from 'thirdweb';
-import { CHAIN, client, FINGER_ON_BUTTON_CONTRACT_ADDRESS } from '../constants';
-
 interface GameShellProps {
   game: Game;
 }
@@ -29,6 +25,7 @@ export default function GameShell({ game }: GameShellProps) {
   const [playerCount, setPlayerCount] = useState(0);
   const [userId, setUserId] = useState<string | null>(null);
   const [winnerId, setWinnerId] = useState<string | null>(game.winnerId || null);
+  const { address } = useAccount();
   
   // Initialize user authentication
   useEffect(() => {
@@ -91,7 +88,7 @@ export default function GameShell({ game }: GameShellProps) {
   
   // Initialize realtime connection once we have a userId
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || !address) return;
     
     // Join or create player in the game
     const joinGame = async () => {
@@ -106,6 +103,7 @@ export default function GameShell({ game }: GameShellProps) {
           id: `${game.id}-${userId}`,
           gameId: game.id,
           userId: userId,
+          address,
           status: 'IDLE',
           joinedAt: new Date().toISOString()
         });
@@ -137,7 +135,7 @@ export default function GameShell({ game }: GameShellProps) {
       channel.unsubscribe();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [game.id, userId]);
+  }, [game.id, userId, address]);
   
   // Handle game start
   const handleGameStart = async () => {

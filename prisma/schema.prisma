@@ -25,6 +25,7 @@ model Player {
   eliminatedAt DateTime?
   status       PlayerStatus @default(IDLE)
   game         Game         @relation(fields: [gameId], references: [id])
+  address      String
 }
 
 enum GameState {

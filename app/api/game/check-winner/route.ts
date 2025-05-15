@@ -1,3 +1,4 @@
+import { CHAIN, FINGER_ON_BUTTON_CONTRACT_ADDRESS, THIRDWEB_BACKEND_WALLET } from '@/app/constants';
 import { supabase } from '@/app/lib/supabase';
 import { NextResponse } from 'next/server';
 
@@ -64,6 +65,76 @@ export async function POST(request: Request) {
         console.error('Error updating player status:', updatePlayerError);
         return NextResponse.json({ error: 'Failed to update player status' }, { status: 500 });
       }
+
+      // ---- START: Thirdweb Engine API Call ----
+      const thirdwebEngineUrl = process.env.THIRDWEB_ENGINE_URL;
+      const chainId = CHAIN.id; // TODO: Ensure this ENV VAR is set with your contract's chain ID (e.g., "80002")
+      const gameContractAddress = FINGER_ON_BUTTON_CONTRACT_ADDRESS; // TODO: Ensure this ENV VAR is set with your game contract's address
+      const accessToken = process.env.THIRDWEB_ACCESS_TOKEN; // Bearer token for Engine API
+      const backendWalletAddress = THIRDWEB_BACKEND_WALLET; // Wallet to execute from
+
+      // TODO: Replace with your actual function signature
+      const functionSignature = "withdrawGameFunds(string gameId, address winnerAddress)"; 
+      // TODO: Ensure arguments match the types and order in functionSignature.
+      // For uint256, ensure it's passed as a string if it's a BigInt.
+      const functionArgs = [gameId.toString(), lastPlayer.address]; 
+
+      // TODO: Provide the ABI fragment for your 'withdrawGameFunds' function.
+      // Example:
+      // const contractAbiFragment = [
+      //   {
+      //     "type": "function",
+      //     "name": "withdrawGameFunds",
+      //     "inputs": [
+      //       { "name": "gameId", "type": "uint256" },
+      //       { "name": "winnerAddress", "type": "address" }
+      //     ],
+      //     "outputs": [],
+      //     "stateMutability": "nonpayable"
+      //   }
+      // ];
+
+      if (!thirdwebEngineUrl || !chainId || !gameContractAddress || !accessToken || !backendWalletAddress) {
+        console.error("Thirdweb Engine API configuration missing in environment variables. Skipping withdrawGameFunds call.");
+      } else {
+        const engineApiUrl = `${thirdwebEngineUrl}/contract/${chainId}/${gameContractAddress}/write`;
+        
+        const payload = {
+          functionName: functionSignature,
+          args: functionArgs,
+          // txOverrides: { // Optional: uncomment and configure if needed
+          //   // "gas": "530000", // Example gas limit
+          //   // "value": "0" // Example value in wei (if function is not payable, typically "0")
+          // }
+        };
+
+        try {
+          console.log(`Calling Thirdweb Engine API: POST ${engineApiUrl} by wallet ${backendWalletAddress}`);
+          const response = await fetch(engineApiUrl, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+              'X-Backend-Wallet-Address': backendWalletAddress,
+            },
+            body: JSON.stringify(payload),
+          });
+
+          const responseData = await response.json();
+
+          if (response.ok) {
+            console.log('Successfully called withdrawGameFunds via Thirdweb Engine API. Response:', responseData);
+            // Expected response might be like: { "result": { "queueId": "..." } }
+          } else {
+            console.error('Error calling Thirdweb Engine API:', response.status, responseData);
+            // Expected error might be like: { "error": { "message": "...", "reason": "...", "stack": "..."} }
+            // Consider how this error should affect the overall API response to your client.
+          }
+        } catch (engineFetchError) {
+          console.error('Network or other unexpected error calling Thirdweb Engine API:', engineFetchError);
+        }
+      }
+      // ---- END: Thirdweb Engine API Call ----
       
       return NextResponse.json({ 
         winner: lastPlayer,
