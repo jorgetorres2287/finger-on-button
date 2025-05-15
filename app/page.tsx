@@ -81,15 +81,14 @@ export default function Home() {
         } else {
           console.log('No game found, creating a new one');
           // Create a new game for today at noon ET
-          const noon = new Date(today);
-          noon.setHours(12, 0, 0, 0);
+          const now = new Date();
 
           const { data: newGame, error: createError } = await supabase
             .from('Game')
             .insert([
               { 
                 id: uuidv4(),
-                scheduledAt: noon.toISOString(),
+                scheduledAt: now.toISOString(),
                 state: 'WAITING',
                 createdAt: now.toISOString(),
                 updatedAt: now.toISOString()
