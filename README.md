@@ -29,7 +29,7 @@ Create a `.env` file in the root directory with the following:
 
 ```
 # Database connection string
-DATABASE_URL="postgresql://username:password@localhost:5432/finger_on_button"
+POSTGRES_URL_NON_POOLING="postgresql://jorgetorres:your_password@localhost:5432/finger_on_button"
 ```
 
 ### Installation
