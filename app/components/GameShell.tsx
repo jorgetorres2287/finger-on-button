@@ -189,7 +189,7 @@ export default function GameShell({ game }: GameShellProps) {
       </main>
       
       <footer className="mt-12 text-center text-sm text-gray-500">
-        <p>Entry fee: 0.0001 ETH • Last player to lift their finger wins all entry fees!</p>
+        <p>Entry fee: 0.0001 ETH • Last player to lift their finger wins all entry fees</p>
       </footer>
     </div>
   );
