@@ -10,7 +10,7 @@ contract FingerOnButton {
     }
 
     address public constant ADMIN = 0xb503723beC0E8142aC24aCf55Fc11c7fC809e723;
-    uint256 public constant ENTRY_FEE = 0.00001 ether;
+    uint256 public constant ENTRY_FEE = 0.0001 ether;
     Deposit[] public allDeposits;
     mapping(string => uint256) public gameTotalDeposits;
     mapping(string => Deposit[]) public gameDeposits;
