@@ -148,12 +148,6 @@ npm start
 
 ## Deployment
 
-### Vercel (Recommended)
-
-1. Connect your GitHub repo to Vercel
-2. Add all environment variables in Vercel dashboard
-3. Deploy
-
 ### Manual Deployment
 
 Ensure all environment variables are set in your hosting platform. The app requires:
